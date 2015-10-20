@@ -1,0 +1,13 @@
+#!/bin/bash
+
+woopie_apache_start () {
+  if service apache2 status > /dev/null; then
+    service apache2 stop
+  fi
+}
+
+woopie_apache_stop () {
+  if ! service apache2 status > /dev/null; then
+    service apache2 start
+  fi
+}

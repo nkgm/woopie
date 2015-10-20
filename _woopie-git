@@ -1,0 +1,22 @@
+#!/bin/bash
+
+git $@
+
+#case "$1" in
+#    init)
+#        shift
+#        git init --bare --shared=git "$*"
+#    ;;
+#
+#    reset)
+#        git reset --hard
+#        db restore db/database.sql
+#    ;;
+#
+#    commit)
+#        db dump db/database.sql
+#        git add .
+#        shift
+#        git commit -m "$*"
+#    ;;
+#esac

@@ -1,0 +1,60 @@
+#!/bin/bash
+
+WOOPIE_REMOTE=$(lsb_release -a 2>/dev/null | grep -iq ubuntu && echo true)
+
+if [[ -n $WOOPIE_REMOTE ]]; then
+  if [[ $(id -u) -ne 0 ]]; then
+    echo "woopie requires sudo to run on a remote - exiting"
+    exit 1
+  fi
+fi
+
+woopie_docmd () {
+  if [[ -n $WOOPIE_CMD_REMOTE ]]; then
+    ssh demo@anonymo-biblio.gr "ls -al"
+    pwd
+    exit
+  else
+    WOOPIE_CMD=$1
+    shift
+    woopie_$WOOPIE_CMD "$@"
+  fi
+}
+
+woopie_doctor () {
+  echo WOOPIE_REMOTE="$WOOPIE_REMOTE"
+  woopie_env print
+}
+
+DIR=$(cd -P "$( dirname "${BASH_SOURCE[0]}" )" && pwd)
+
+export PROJECT_ROOT="$(git rev-parse --show-toplevel)"
+
+echo Switching to $PROJECT_ROOT
+cd "$PROJECT_ROOT"
+
+woopie_env_load
+
+if [[ $1 = remote ]]; then
+  export WOOPIE_CMD_REMOTE=true
+  shift
+fi
+
+if [[ $1 = doctor ]]; then
+  woopie_docmd doctor
+  exit 0
+fi
+
+IFS=':' read -ra WOOPIE_CMD <<< "$1"
+if [[ ${#WOOPIE_CMD[@]} != 2 ]]; then
+  echo fail invalid command
+  exit 1
+fi
+
+WOOPIE_SCRIPT=${WOOPIE_CMD[0]}
+WOOPIE_TASK=${WOOPIE_CMD[1]}
+
+shift
+
+woopie_docmd $WOOPIE_SCRIPT "$WOOPIE_TASK" "$@"
+

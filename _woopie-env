@@ -1,0 +1,97 @@
+#!/bin/bash
+
+PERMITTED_VARS=( PROJECT_ROOT APP_URL APP_EMAIL APP_PROTECTED DB_HOST DB_PORT DB_USER DB_PASS DB_NAME )
+
+woopie_env_save () {
+  read -r -d '' TEMPLATE << EOF
+APP_URL="$APP_URL"
+APP_EMAIL="$APP_EMAIL"
+APP_PROTECTED="$APP_PROTECTED"
+DB_USER="$DB_USER"
+DB_PASS="$DB_PASS"
+DB_HOST="$DB_HOST"
+DB_PORT="$DB_PORT"
+DB_NAME="$DB_NAME"
+EOF
+
+  echo "$TEMPLATE" > "$PROJECT_ROOT/.woopie-env"
+}
+
+woopie_env_vhost_save () {
+  read -r -d '' PROTECTED << EOF
+
+    <Location />
+        AuthType Basic
+        AuthName $PROJECT_NAME
+        AuthUserFile /etc/htpasswd/.htpasswd
+        Require valid-user
+    </Location>
+EOF
+
+  if [[ ! "$APP_PROTECTED" = true ]]; then
+      PROTECTED=
+  fi
+
+  read -r -d '' TEMPLATE << EOF
+<VirtualHost *:80>
+    ServerAdmin info@$PROJECT_NAME
+    ServerName $APP_URL
+    DocumentRoot /var/www/$PROJECT_NAME/public_html
+    ErrorLog \${APACHE_LOG_DIR}/${PROJECT_NAME}_error.log
+    CustomLog \${APACHE_LOG_DIR}/${PROJECT_NAME}_access.log combined
+    SetEnv APP_URL "$APP_URL"
+    SetEnv APP_EMAIL "$APP_EMAIL"
+    SetEnv DB_USER "$DB_USER"
+    SetEnv DB_PASS "$DB_PASS"
+    SetEnv DB_HOST "$DB_HOST"
+    SetEnv DB_PORT "$DB_PORT"
+    SetEnv DB_NAME "$DB_NAME"
+    <Directory "/var/www/$PROJECT_NAME/public_html">
+        Options Indexes FollowSymLinks
+        AllowOverride All
+
+        Order allow,deny
+        Allow from all
+    </Directory>$PROTECTED
+</VirtualHost>
+EOF
+
+  echo "$TEMPLATE" > /etc/apache2/sites-available/$PROJECT_NAME.conf
+}
+
+woopie_env_load () {
+  . "$PROJECT_ROOT/.envrc" 2> /dev/null && echo Loaded vars from "$PROJECT_ROOT/.envrc"
+  . "$PROJECT_ROOT/.woopie-env" 2> /dev/null && echo Loaded vars from "$PROJECT_ROOT/.woopie-env"
+  export APP_URL=${APP_URL-$PROJECT_NAME}
+  export APP_EMAIL=${APP_EMAIL}
+  export APP_PROTECTED=${APP_PROTECTED-true}
+  export DB_USER=${DB_USER-root}
+  export DB_PASS=${DB_PASS-}
+  export DB_HOST=${DB_HOST-localhost}
+  export DB_PORT=${DB_PORT-3306}
+  export DB_NAME=${DB_NAME-$PROJECT_NAME}
+}
+
+woopie_env () {
+  case $1 in
+    set)
+      if [[ " ${PERMITTED_VARS[@]} " =~ " $2 " ]]; then
+          echo setting $2 to $3
+          export "$2"="$3"
+          woopie_env_save
+          woopie_env_vhost_save
+      else
+          echo unknown env var: $2
+      fi
+      ;;
+    print)
+      for v in "${PERMITTED_VARS[@]}" ; do
+        if [[ -z "${!v}" ]]; then
+          echo "WARNING: $v environment variable not set"
+        else
+          echo "${v}=${!v}"
+        fi
+      done
+  esac
+}
+

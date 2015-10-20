@@ -1,0 +1,34 @@
+#!/bin/bash
+
+woopie_db () {
+  case "$1" in
+      dump)
+          [[ -z "$2" ]] && echo "Usage: db:dump <file>" && exit 1
+
+          echo "Replacing all \"${APP_URL}\" occurrences with \"%%HOST%%\" in place."
+          woopie_searchreplacedb lola soupa "${APP_EMAIL}" "%%EMAIL%%" "${APP_URL}" "%%HOST%%"
+
+          if [[ $? -ne 0 ]]; then echo "woopie_searchreplacedb did not complete normally - aborting."; exit 1; fi
+          echo "Dumping ${DB_HOST}:${DB_PORT}/${DB_NAME} to $2..."
+          mysqldump --host=${DB_HOST} --port=${DB_PORT} --user=${DB_USER} --password=${DB_PASS} --add-drop-database ${DB_NAME} | perl -p -e 's/VALUES \(/VALUES \n\(/g' | perl -p -e 's/\),\(/\),\n\(/g' > $2
+
+          echo "Switching all \"%%HOST%%\" occurrences back to \"${APP_URL}\"."
+          woopie_searchreplacedb "%%EMAIL%%" "${APP_EMAIL}" "%%HOST%%" "${APP_URL}"
+          if [[ $? -ne 0 ]]; then echo "woopie_searchreplacedb did not complete normally - the database may have been left in an inconsistent state!"; exit 1; fi
+          echo "Done."
+          ;;
+
+      restore)
+          [[ -z "$2" ]] && echo "Usage: db:restore <file>" && exit 1
+
+          echo "Restoring $2 to ${DB_HOST}:${DB_PORT}/${DB_NAME}..."
+          cat $2 | mysql --host=${DB_HOST} --port=${DB_PORT} --database=${DB_NAME} --user=${DB_USER} --password=${DB_PASS}
+
+          echo "Switching all \"%%HOST%%\" occurrences to \"${APP_URL}\"."
+          woopie_searchreplacedb "%%EMAIL%%" "${APP_EMAIL}" "%%HOST%%" "${APP_URL}"
+          if [[ $? -ne 0 ]]; then echo "woopie_searchreplacedb did not complete normally - the database may have been left in an inconsistent state!"; exit 1; fi
+          echo "Done."
+          ;;
+
+  esac
+}
