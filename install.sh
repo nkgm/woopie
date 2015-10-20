@@ -1,6 +1,6 @@
 #!/bin/bash
 
-WOOPIE_RAW_REPO="https://raw.githubusercontent.com/skwp/dotfiles"
+WOOPIE_RAW_REPO="https://raw.githubusercontent.com/nkgm/woopie"
 
 woopie_partial () {
   PARTIAL=$1
@@ -11,7 +11,15 @@ woopie_partial () {
   fi
 }
 
+if [[ ! -e searchreplacedb.php ]]; then
+  REMOVE_SEARCHREPLACEDB=true
+  curl -fsSL "$WOOPIE_RAW_REPO/master/searchreplacedb.php" > searchreplacedb.php
+fi
 SEARCHREPLACEDB="$(php -w searchreplacedb.php | perl -p -e 's/^\s*<\?php\s*//s' | perl -p -e 's/\s*\?>\s*$//s')"
+if [[ -n $REMOVE_SEARCHREPLACEDB ]]; then
+  rm -f searchreplacedb.php
+  unset REMOVE_SEARCHREPLACEDB
+fi
 
 read -r -d '' TEMPLATE << TEMPLATE
 #!/bin/bash
